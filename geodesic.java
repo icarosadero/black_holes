@@ -5,8 +5,10 @@ import org.apache.commons.math3.ode.*;
 import org.apache.commons.math3.ode.nonstiff.*;
 import org.apache.commons.math3.ode.sampling.*;
 import java.io.FileWriter;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.File;
+import java.io.BufferedReader;
 
 class geodesic{
     //main class
@@ -15,8 +17,8 @@ class geodesic{
     a and b are the Boyer-Lindquist coordinates and the Schwarzschild radius
     respectively
     */
-    public static final double T = 1.0; public static final double R = 22.995;
-    public static final double a = 1.0; public static final double b = 5.0;
+    public static double T = 32.4771876298; public static double R = 73.5958164971;
+    public static double a = 19.4684033665; public static double b = 87.8183596341;
     public static double[][] results;
     public static double[][] append(double[][] mat,double[] row){
         //Appends array to matrix
@@ -79,15 +81,18 @@ class geodesic{
           return -(r*r+a*a+a*a*b/r)*T-a*b*R/r;
         }
 
-        public double rDotSq(double r, double U, double V){
-          return (1/r/r)*(-Delta(r)-T*U-R*V);
+        public double rSqDotSq(double r){
+          //return (-Delta(r)-T*U-R*V);
+          double q = -Delta(r)-R*R+T*T*(a*a+r+r)+b*(a*T+R)*(a*T+R)/r;
+          //System.out.println(q);
+          return q;
         }
 
         public int getDimension() {
             return 4;
         }
         public void computeDerivatives(double tau, double[] y, double[] yDot) {
-            System.out.println(Arrays.toString(y));
+            //System.out.println(Arrays.toString(y));
             double r = y[2]; double t = y[0]; double phi = y[1];
             double D = Delta(r);
             double tt = TDT(r); double pp = RDP(r);
@@ -97,7 +102,8 @@ class geodesic{
             yDot[0] = tt/D;
             yDot[1] = pp/D;
             yDot[2] = y[3];
-            yDot[3] = (-1.0/2.0/r)*(rDotSq(r,tt/D,pp/D)+(1.0/r)*(2.0*r*(1.0-T*T)-b+b*(a*T+R)*(a*T+R)/r/r));
+            yDot[3] = -(0.5/r/r)*(2.0*r*(1.0-T*T)-b+b*(a*T+R)*(a*T+R)/r/r+2.0*rSqDotSq(r)/r);
+            //yDot[3] = (-1.0/2.0/r)*(rDotSq(r,tt/D,pp/D)+(1.0/r)*(2.0*r*(1.0-T*T)-b+b*(a*T+R)*(a*T+R)/r/r));
             //yDot[3] = (1.0/(2.0*r*r))*(-b*(yDot[0]-a*yDot[1])*(yDot[0]-a*yDot[1])+2*r*yDot[1]*yDot[1]-2*(D/r - (2*r+b))*(T*R-b*a/r + yDot[0]*yDot[1]*D));
             //yDot[3] = -(1/(D*2.0*r*r))*(b*r*r*yDot[2]*yDot[2]-2*r*r*r*yDot[2]*yDot[2] + D*D*b*(yDot[0]-a*yDot[1])*(yDot[0]-a*yDot[1])/r/r + r*(D*2*yDot[2]*yDot[2] - D*D*2*yDot[1]*yDot[1]));
             //yDot[3] = -rDotSq(r,tt,pp)/(r*r*r) + (1/(2*r*r))*(-2*a*b*T*R/r/r + b - 2*r + b*R*R/r/r + T*T*(2*r-a*a*b/r/r));
@@ -159,7 +165,20 @@ class geodesic{
         catch(Exception ignore){}
     }
     public static void main(String[] args){
-       run(0.0,30000.0,1000.0, 100.0); //Initial conditions
-       saveToCsv();
+      double r = 20.0;
+      try
+      {
+        BufferedReader csvReader = new BufferedReader(new FileReader("constants.csv"));
+        String[] data = csvReader.readLine().split(",");
+        a=Double.parseDouble(data[2]); b=Double.parseDouble(data[3]);
+        T=Double.parseDouble(data[0]); R=Double.parseDouble(data[1]);
+        r=Double.parseDouble(data[4]);
+        csvReader.close();
+        System.out.println(Arrays.toString(data));
+      }
+      catch(Exception ignore){}
+
+      run(0.0,10000.0,1000.0, r); //Initial conditions
+      saveToCsv();
     }
 }
