@@ -15,8 +15,8 @@ class geodesic{
     a and b are the Boyer-Lindquist coordinates and the Schwarzschild radius
     respectively
     */
-    public static final double T = 0.0; public static final double R = -1.0;
-    public static final double a = 2.0; public static final double b = 0.1;
+    public static final double T = 1.0; public static final double R = 22.995;
+    public static final double a = 1.0; public static final double b = 5.0;
     public static double[][] results;
     public static double[][] append(double[][] mat,double[] row){
         //Appends array to matrix
@@ -42,6 +42,13 @@ class geodesic{
         /*Coefficient matrix for the linear relation
         of derivatives of time-angle*/
         double[][] R = {{-(1-b/r),-b*a/r},{-b*a/r, r*r+a*a+b*a*a/r}};
+        /*for (int i = 0; i < R.length; i++) {
+          for (int j = 0; j < R[i].length; j++) {
+            System.out.print(R[i][j] + " ");
+          }
+          System.out.println();
+        }*/
+        System.out.println(r);
         return R;
     }
     public static double Delta(double r){
@@ -64,18 +71,36 @@ class geodesic{
         /*
         Equations of motion
         */
+        public double RDP(double r){
+          return (1-b/r)*R - a*b*T/r;
+        }
+
+        public double TDT(double r){
+          return -(r*r+a*a+a*a*b/r)*T-a*b*R/r;
+        }
+
+        public double rDotSq(double r, double U, double V){
+          return (1/r/r)*(-Delta(r)-T*U-R*V);
+        }
+
         public int getDimension() {
             return 4;
         }
         public void computeDerivatives(double tau, double[] y, double[] yDot) {
+            System.out.println(Arrays.toString(y));
             double r = y[2]; double t = y[0]; double phi = y[1];
             double D = Delta(r);
-            RealVector vec = tphi(r);
-            yDot[0] = vec.getEntry(0);
-            yDot[1] = vec.getEntry(1);
+            double tt = TDT(r); double pp = RDP(r);
+            //RealVector vec = tphi(r);
+            //yDot[0] = vec.getEntry(0);
+            //yDot[1] = vec.getEntry(1);
+            yDot[0] = tt/D;
+            yDot[1] = pp/D;
             yDot[2] = y[3];
-            yDot[3] = (1.0/(2.0*r*r))*(-b*(yDot[0]-a*yDot[1])*(yDot[0]-a*yDot[1])+2*r*yDot[1]*yDot[1]-2*(D/r - (2*r+b))*(T*R-b*a/r + yDot[0]*yDot[1]*D));
-
+            yDot[3] = (-1.0/2.0/r)*(rDotSq(r,tt/D,pp/D)+(1.0/r)*(2.0*r*(1.0-T*T)-b+b*(a*T+R)*(a*T+R)/r/r));
+            //yDot[3] = (1.0/(2.0*r*r))*(-b*(yDot[0]-a*yDot[1])*(yDot[0]-a*yDot[1])+2*r*yDot[1]*yDot[1]-2*(D/r - (2*r+b))*(T*R-b*a/r + yDot[0]*yDot[1]*D));
+            //yDot[3] = -(1/(D*2.0*r*r))*(b*r*r*yDot[2]*yDot[2]-2*r*r*r*yDot[2]*yDot[2] + D*D*b*(yDot[0]-a*yDot[1])*(yDot[0]-a*yDot[1])/r/r + r*(D*2*yDot[2]*yDot[2] - D*D*2*yDot[1]*yDot[1]));
+            //yDot[3] = -rDotSq(r,tt,pp)/(r*r*r) + (1/(2*r*r))*(-2*a*b*T*R/r/r + b - 2*r + b*R*R/r/r + T*T*(2*r-a*a*b/r/r));
         }
 
     }
@@ -103,14 +128,14 @@ class geodesic{
         }
    }
 
-    public static void run(double tau0, double tauf, double steps){
+    public static void run(double tau0, double tauf, double steps, double r0){
         /*
         Solving differetial equation with DormandPrince853Integrator
         */
         FirstOrderIntegrator dp853 = new DormandPrince853Integrator(1.0e-10, 100.0, 1.0e-10, 1.0e-10);
         FirstOrderDifferentialEquations ode = new Kerr();
-        double[] initialConditions = new double[] {0.0,0.0,1.0,0.0,tau0,0.0,0.0};
-        double realR0 = Math.sqrt(initialConditions[2]*initialConditions[2]+a+a);
+        double[] initialConditions = new double[] {0.0,0.0,r0,0.0,tau0,0.0,0.0};
+        double realR0 = Math.sqrt(initialConditions[2]*initialConditions[2]+a*a);
         initialConditions[initialConditions.length-1]=realR0*Math.cos(initialConditions[1]);
         initialConditions[initialConditions.length-2]=realR0*Math.sin(initialConditions[1]);
         double[] y = new double[initialConditions.length-3]; for(int k = 0; k<initialConditions.length-3; k++){y[k]=initialConditions[k];} // initial state t,phi,r,rdot
@@ -118,7 +143,7 @@ class geodesic{
 
         double deltaTau = (tauf-tau0)/steps;
         double[] out = new double[y.length+3];
-        for(int i = 0; i<steps-1; i++){
+        try{for(int i = 0; i<steps-1; i++){
             double tauI = tau0+i*deltaTau;
             double tauF = tauI + deltaTau;
             dp853.integrate(ode, tauI, y, tauF, y);
@@ -126,14 +151,15 @@ class geodesic{
                 out[j]=y[j];
             }
             out[y.length]=tauI;
-            double realR = Math.sqrt(out[2]*out[2]+a+a);
+            double realR = Math.sqrt(out[2]*out[2]+a*a);
             out[y.length+1]=realR*Math.cos(out[1]);
             out[y.length+2]=realR*Math.sin(out[1]);
             results = append(results, out);
-        }
+        }}
+        catch(Exception ignore){}
     }
     public static void main(String[] args){
-       run(0.0,1000.0,1000.0); //Initial conditions
+       run(0.0,30000.0,1000.0, 100.0); //Initial conditions
        saveToCsv();
     }
 }
